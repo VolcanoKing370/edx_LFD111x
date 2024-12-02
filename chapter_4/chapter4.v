@@ -44,7 +44,9 @@
    $reset = *reset;
    
    // PC logic
-   $next_pc[31:0] = $reset ? 32'b0 : $pc[31:0] + 32'h4;
+   $next_pc[31:0] = $reset ? 32'b0 :
+                    $taken_br ? $br_tgt_pc:
+                    >>1$next_pc[31:0] + 4'h4;
    $pc[31:0] = >>1$next_pc;
    // Isntantiate READONLY_MEM macro after PC Logic
    `READONLY_MEM($pc, $$instr[31:0])
@@ -104,24 +106,27 @@
                    $is_add ? $src1_value + $src2_value:
                    32'b0;
    
+   //Register Wite
+   $result_write[31:0] = $result;
+   
    // Branch Logic
    $taken_br = $is_beq ? $src1_value == $src2_value :
                $is_bne ? $src1_value != $src2_value :
                $is_blt ? ($src1_value < $src2_value) ^ ($src1_value[31] != $src2_value[31]) :
                $is_bge ? ($src1_value >= $src2_value) ^ ($src1_value[31] != $src2_value[31]):
-               $is_bltu ? $src1_value == $src2_value :
+               $is_bltu ? $src1_value < $src2_value :
                $is_bgeu ? $src1_value >= $src2_value :
                           1'b0;
 
    $br_tgt_pc[31:0] = $pc[31:0] + $imm;
 
    // Assert these to end simulation (before Makerchip cycle limit).
-   *passed = 1'b0;
+   m4+tb()
    *failed = *cyc_cnt > M4_MAX_CYC;
    
-   m4+tb()
+   
    // Macro to instantiate register
-   m4+rf(32, 32, $reset, $rd_valid, $rd[4:0], $result, $rs1_valid, $rs1[4:0], $src1_value, $rs2_valid, $rs2[4:0], $src2_value)
+   m4+rf(32, 32, $reset, $rd_valid, $rd[4:0], $result_write[31:0], $rs1_valid, $rs1[4:0], $src1_value, $rs2_valid, $rs2[4:0], $src2_value)
    //m4+dmem(32, 32, $reset, $addr[4:0], $wr_en, $wr_data[31:0], $rd_en, $rd_data)
    m4+cpu_viz()
 \SV
